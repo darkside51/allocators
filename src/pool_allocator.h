@@ -10,8 +10,7 @@
 
 #ifdef STD_VARIANT_ALLOCATOR_VALUE
 #include <variant>
-#endif
-
+#else
 namespace allocators {
     template<typename...Types>
     class Value final {
@@ -102,6 +101,7 @@ namespace std {
         return v.template get<T>();
     }
 }
+#endif
 
 namespace allocators {
     template<typename T, size_t size, bool thread_safe = true>
@@ -132,20 +132,20 @@ namespace allocators {
         };
 
         template<typename>
-        struct locker_type {
+        struct locker_type final {
             using type = std::byte;
         };
         template<typename U>
-        struct locker_type<std::atomic<U>> {
+        struct locker_type<std::atomic<U>> final {
             using type = std::atomic_flag;
         };
 
-        struct AllocationHolder {
+        struct AllocationHolder final {
             explicit AllocationHolder(size_t v) : next(v) {}
             size_t next = 0u;
         };
 
-        struct AllocationOnly {};
+        struct AllocationOnly final {};
 
         using counter_type = typename common_counter_type<thread_safe>::type;
 #if defined STD_VARIANT_ALLOCATOR_VALUE
