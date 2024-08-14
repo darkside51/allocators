@@ -107,7 +107,7 @@ namespace std {
 namespace allocators {
     template<typename T, size_t size, bool thread_safe = true>
     class PoolAllocator final {
-         template<bool, typename Dummy = int>
+        template<bool, typename Dummy = int>
         struct common_pointer_type {
             using type = void*;
         };
@@ -132,11 +132,11 @@ namespace allocators {
 
     public:
         PoolAllocator() {
-            _memory.resize(size);
-            for (size_t i = 0U; i < size; ++i) {
-                _memory[i].template emplace<AllocationHolder>(i == size - 1 ? &*_memory.end() : &_memory[i+1]);
+            _memory.reserve(size);
+            for (size_t i = 0u; i < size; ++i) {
+                _memory.emplace_back(AllocationHolder(&_memory[i + 1u]));
             }
-            _current = &_memory[0];
+            _current = &_memory[0u];
         }
 
         ~PoolAllocator() = default;
