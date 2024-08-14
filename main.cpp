@@ -32,6 +32,7 @@ int main() {
 
         [[maybe_unused]] auto *objPtr2 = pool.create(12u, 22u, "abc2");
         [[maybe_unused]] auto & obj1 = pool.createValue(111u, 211u, "def1");
+        [[maybe_unused]] auto & obj2 = pool.createValue(1112u, 2112u, "def2");
 
         printf("PoolAllocator example end\n");
     }
@@ -45,7 +46,7 @@ int main() {
             threads.emplace_back([&aPool, i]() {
                 for (size_t j = 0; j < 4; ++j) {
                     [[maybe_unused]] auto & value = aPool.createValue(j + i * 10, i + j * 10 + 1, "");
-                    std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 10));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 4));
                 }
             });
         }

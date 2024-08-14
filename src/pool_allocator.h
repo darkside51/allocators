@@ -107,48 +107,23 @@ namespace std {
 namespace allocators {
     template<typename T, size_t size, bool thread_safe = true>
     class PoolAllocator final {
-        template<bool, typename Dummy = int>
-        struct common_counter_type {
-            using type = size_t;
+         template<bool, typename Dummy = int>
+        struct common_pointer_type {
+            using type = void*;
         };
         template<typename Dummy>
-        struct common_counter_type<true, Dummy> {
-            using type = std::atomic<size_t>;
-        };
-
-        class SpinLock final {
-        public:
-            explicit SpinLock(std::atomic_flag &l) : _locker(l) {
-                while (_locker.test_and_set(std::memory_order_acquire)) {}
-            }
-            ~SpinLock() { _locker.clear(std::memory_order_release); }
-
-            SpinLock(SpinLock &&allocator) = delete;
-            SpinLock(const SpinLock &allocator) = delete;
-            SpinLock & operator=(SpinLock &&allocator) = delete;
-            SpinLock & operator=(const SpinLock &allocator) = delete;
-
-        private:
-            std::atomic_flag &_locker;
-        };
-
-        template<typename>
-        struct locker_type final {
-            using type = std::byte;
-        };
-        template<typename U>
-        struct locker_type<std::atomic<U>> final {
-            using type = std::atomic_flag;
+        struct common_pointer_type<true, Dummy> {
+            using type = std::atomic<void*>;
         };
 
         struct AllocationHolder final {
-            explicit AllocationHolder(size_t v) : next(v) {}
-            size_t next = 0u;
+            explicit AllocationHolder(void* v) : next(v) {}
+            void* next = nullptr;
         };
 
         struct AllocationOnly final {};
 
-        using counter_type = typename common_counter_type<thread_safe>::type;
+        using ponter_type = typename common_pointer_type<thread_safe>::type;
 #if defined STD_VARIANT_ALLOCATOR_VALUE
         using memory_element_type = std::variant<T, AllocationOnly, AllocationHolder>;
 #else
@@ -157,10 +132,11 @@ namespace allocators {
 
     public:
         PoolAllocator() {
-            _memory.reserve(size);
+            _memory.resize(size);
             for (size_t i = 0U; i < size; ++i) {
-                _memory.emplace_back(AllocationHolder{i + 1u});
+                _memory[i].template emplace<AllocationHolder>(i == size - 1 ? &*_memory.end() : &_memory[i+1]);
             }
+            _current = &_memory[0];
         }
 
         ~PoolAllocator() = default;
@@ -172,26 +148,26 @@ namespace allocators {
 
         template<typename... Args>
         [[nodiscard]] T * create(Args &&... args) {
-            return &_memory[fetch()].template emplace<T>(std::forward<Args>(args)...);
+            return &fetch()->template emplace<T>(std::forward<Args>(args)...);
         }
 
         template<typename... Args>
         [[nodiscard]] T & createValue(Args &&... args) {
-            return _memory[fetch()].template emplace<T>(std::forward<Args>(args)...);
+            return fetch()->template emplace<T>(std::forward<Args>(args)...);
         }
 
         [[nodiscard]] void * alloc() noexcept {
-            return &_memory[fetch()].template emplace<AllocationOnly>();
+            return &fetch()->template emplace<AllocationOnly>();
         }
 
         void free(void *value) noexcept {
             const auto id = (reinterpret_cast<memory_element_type *>(value) - &_memory[0U]);
             assert(id >= 0u && id < size);
             if constexpr (thread_safe) {
-                _memory[id].template emplace<AllocationHolder>(_current.exchange(id, std::memory_order_acq_rel));
+                _memory[id].template emplace<AllocationHolder>(_current.exchange(value, std::memory_order_acq_rel));
             } else {
                 _memory[id].template emplace<AllocationHolder>(_current);
-                _current = id;
+                _current = value;
             }
         }
 
@@ -201,30 +177,26 @@ namespace allocators {
 
         [[nodiscard]] bool empty() const noexcept {
             if constexpr (thread_safe) {
-                return _current.load(std::memory_order_acquire) == size;
+                return _current.load(std::memory_order_acquire) == &*_memory.end();
             } else {
-                return _current == size;
+                return _current == &*_memory.end();
             }
         }
 
     private:
-        [[nodiscard]] size_t fetch() noexcept {
+        [[nodiscard]] memory_element_type * fetch() noexcept {
             if constexpr (thread_safe) {
-                SpinLock l(_flag); // how disable this step?
-                const size_t id = _current.load(std::memory_order_acquire);
-                assert(id < size);
-                _current.store(std::get<AllocationHolder>(_memory[id]).next, std::memory_order_release);
-                return id;
+                void* value = _current.load(std::memory_order_acquire);
+                while (!_current.compare_exchange_weak(value, static_cast<AllocationHolder*>(value)->next, std::memory_order_acq_rel));
+                return reinterpret_cast<memory_element_type *>(value);
             } else {
-                assert(_current < size);
-                const size_t id = _current;
-                _current = std::get<AllocationHolder>(_memory[id]).next;
-                return id;
+                void* value = _current;
+                _current = static_cast<AllocationHolder*>(value)->next;
+                return reinterpret_cast<memory_element_type *>(value);
             }
         }
 
         std::vector<memory_element_type> _memory;
-        counter_type _current = {0u};
-        [[maybe_unused]] typename locker_type<counter_type>::type _flag = {};
+        ponter_type _current = nullptr;
     };
 }
