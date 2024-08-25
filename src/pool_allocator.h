@@ -105,7 +105,7 @@ namespace std {
 #endif
 
 namespace allocators {
-    template<typename T, size_t size, bool thread_safe = true>
+    template<typename T, size_t size, bool thread_safe = false, size_t align = alignof(T)>
     class PoolAllocator final {
         template<bool, typename Dummy = int>
         struct common_pointer_type {
@@ -196,7 +196,7 @@ namespace allocators {
             }
         }
 
-        std::vector<memory_element_type> _memory;
+        alignas(align) std::vector<memory_element_type> _memory;
         ponter_type _current = nullptr;
     };
 }

@@ -21,7 +21,7 @@ int main() {
     {
         printf("PoolAllocator example begin\n");
 
-        allocators::PoolAllocator<TestObject, 16u, false> pool;
+        allocators::PoolAllocator<TestObject, 16u, false, alignof(TestObject)> pool;
         auto *objPtr0 = pool.create(10u, 20u, "abc");
         [[maybe_unused]] auto *objPtr1 = pool.create(11u, 21u, "abc1");
         auto & obj0 = pool.createValue(110u, 210u, "def");
@@ -39,7 +39,7 @@ int main() {
 
     {
         printf("async PoolAllocator example begin\n");
-        allocators::PoolAllocator<TestObject, 16u, true> aPool;
+        allocators::PoolAllocator<TestObject, 16u, true, alignof(TestObject)> aPool;
 
         std::vector<std::thread> threads;
         for (size_t i = 0; i < 4; ++i) {
