@@ -21,31 +21,37 @@ int main() {
     {
         printf("PoolAllocator example begin\n");
 
-        allocators::PoolAllocator<TestObject, 16u, false, alignof(TestObject)> pool;
-        auto *objPtr0 = pool.create(10u, 20u, "abc");
-        [[maybe_unused]] auto *objPtr1 = pool.create(11u, 21u, "abc1");
-        auto & obj0 = pool.createValue(110u, 210u, "def");
+        allocators::PoolAllocator<sizeof(TestObject), 16u, alignof(TestObject), false> pool;
+        auto *objPtr0 = pool.create<TestObject>(10u, 20u, "abc");
+        [[maybe_unused]] auto *objPtr1 = pool.create<TestObject>(11u, 21u, "abc1");
+        auto * obj0 = pool.create<TestObject>(110u, 210u, "def");
+
+        auto * mem = pool.alloc();
+        auto *ptr = new(mem) TestObject(330, 444, "aaa");
 
         pool.free(objPtr0);
-        pool.freeValue(obj0);
+        pool.destroy(obj0);
+
+        ptr->~TestObject();
+        pool.free(mem);
         objPtr0 = nullptr;
 
-        [[maybe_unused]] auto *objPtr2 = pool.create(12u, 22u, "abc2");
-        [[maybe_unused]] auto & obj1 = pool.createValue(111u, 211u, "def1");
-        [[maybe_unused]] auto & obj2 = pool.createValue(1112u, 2112u, "def2");
+        [[maybe_unused]] auto *objPtr2 = pool.create<TestObject>(12u, 22u, "abc2");
+        [[maybe_unused]] auto * obj1 = pool.create<TestObject>(111u, 211u, "def1");
+        [[maybe_unused]] auto * obj2 = pool.create<TestObject>(1112u, 2112u, "def2");
 
         printf("PoolAllocator example end\n");
     }
 
     {
         printf("async PoolAllocator example begin\n");
-        allocators::PoolAllocator<TestObject, 16u, true, alignof(TestObject)> aPool;
+        allocators::PoolAllocator<sizeof(TestObject), 16u, alignof(TestObject), true> aPool;
 
         std::vector<std::thread> threads;
         for (size_t i = 0; i < 4; ++i) {
             threads.emplace_back([&aPool, i]() {
                 for (size_t j = 0; j < 4; ++j) {
-                    [[maybe_unused]] auto & value = aPool.createValue(j + i * 10, i + j * 10 + 1, "");
+                    [[maybe_unused]] auto * value = aPool.create<TestObject>(j + i * 10, i + j * 10 + 1, "");
                     std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 4));
                 }
             });
