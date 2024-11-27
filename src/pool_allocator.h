@@ -104,13 +104,17 @@ namespace allocators {
             return (bytes > sizeof(AllocationHolder)) ? bytes : sizeof(AllocationHolder);
         }
 
-        inline size_t memorySize() const noexcept { // in bytes
+        inline size_t memory_size() const noexcept { // in bytes
             constexpr uintptr_t mask = align - 1u;
             constexpr auto size = element_size();
             return (_capacity * size) + mask;
         } 
 
         inline size_t capacity() const noexcept { return _capacity; }
+
+        inline size_t used_memory() const noexcept {
+            return sizeof(PoolAllocator) +  memory_size();
+        }
 
         explicit PoolAllocator(size_t capacity) : _capacity(capacity) {
             assert(capacity > 0u);

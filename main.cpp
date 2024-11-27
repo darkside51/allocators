@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <thread>
+#include <vector>
 
 class TestObject {
 public:
@@ -21,7 +22,7 @@ int main() {
     {
         printf("PoolAllocator example begin\n");
 
-        allocators::PoolAllocator<sizeof(TestObject), 16u, alignof(TestObject), false> pool;
+        allocators::PoolAllocator<sizeof(TestObject), alignof(TestObject), false> pool{16u};
         auto *objPtr0 = pool.create<TestObject>(10u, 20u, "abc");
         [[maybe_unused]] auto *objPtr1 = pool.create<TestObject>(11u, 21u, "abc1");
         auto * obj0 = pool.create<TestObject>(110u, 210u, "def");
@@ -45,7 +46,7 @@ int main() {
 
     {
         printf("async PoolAllocator example begin\n");
-        allocators::PoolAllocator<sizeof(TestObject), 16u, alignof(TestObject), true> aPool;
+        allocators::PoolAllocator<sizeof(TestObject), alignof(TestObject), true> aPool{16u};
 
         std::vector<std::thread> threads;
         for (size_t i = 0; i < 4; ++i) {
